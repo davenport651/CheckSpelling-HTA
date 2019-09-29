@@ -1,0 +1,108 @@
+<html>
+<head>
+  <title>Spell Check via ASpell</title>
+  
+  <HTA:APPLICATION
+		APPLICATIONNAME="Spell Check"
+		SCROLL="no"
+		>
+</head>
+
+<script language="VBScript">
+	Sub Window_OnLoad
+		'Change WindowSize
+		Self.ResizeTo 300,280
+	End Sub
+
+	Sub Reset
+		Location.Reload(true)
+	End Sub
+	
+	
+	Sub Check
+		strInput = input.value
+		if strInput = "" then Exit Sub 'exit if Null input
+		
+		'______________Run ASpell_______
+		set objShell = createobject("wscript.shell") 'create the shell object
+		strAspell = """c:\program files\aspell\bin\aspell.exe"" -a" 'path to run Aspell in Ispell pipe mode
+		'msgbox strAspell
+		strCall = "echo " & strInput & " | " & strAspell 'this string sends the input word to Aspell
+		set objAspell = objShell.exec ("%ComSpec% /c" & strCall) 'create the Aspell object
+
+		strCorrList = "" 'clear and declare the Correction List
+		do until objAspell.stdout.AtEndOfStream
+			strLine = objAspell.stdout.readline 'place first line returned into variable
+			if instr(strLine,":") <> 0 then 'if the line contains a colon...
+			'Note:  Aspell returned list of corrections appear to the right of the colon
+				strCorrList = strLine
+			Else If instr(strLine,"*") <> 0 then strCorrList = strLine 'if the line contains an astris
+			End If
+		Loop
+
+		'______________Format & Return list____
+		ClearListBox  'clear contents of listbox
+		
+		'if astris was returned then input was correct, send input back as correction
+		If strCorrList = "*" then 	
+			Set objOption = Document.createElement("OPTION")
+			objOption.Text = strInput
+			objOption.Value = strInput
+			Corrections.Add(objOption)
+			exit sub
+		end if 		
+		
+		'...otherwise do the following:
+		strCorrList = Right(strCorrList, Len(strCorrList)-instr(strCorrList,":") ) 'return any characters to the right of colon
+		arrCorrList = strCorrList 'copy list to array variant
+		arrCorrList = Split(arrCorrList,",") 'creates array of values by splitting at comma
+
+		For each correction in arrCorrList
+			arrCorrList(i) = trim(correction) 'remove spaces on either side of text
+
+			'place corrections in listbox
+			Set objOption = Document.createElement("OPTION")
+			objOption.Text = correction
+			objOption.Value = correction
+			Corrections.Add(objOption)
+			
+		Next
+	End Sub
+	
+	
+	Sub CopyToClipboard
+		strCopy = Corrections.Value
+		strCopy = Trim(strCopy) & " "
+	    document.parentwindow.clipboardData.SetData "text", strCopy
+	End Sub
+	
+	
+	Sub ClearListbox
+		Corrections.disabled = false
+		listboxDescription.innerHTML = ""
+	    For Each objOption in Corrections.Options
+	        objOption.RemoveNode
+	    Next 
+	End Sub
+
+	
+	Sub About
+		msgbox "Frontend for Aspell - A free and open source spell checker" & vbcrlf &_
+		"visit http://aspell.net for more info." & vbcrlf &_
+		vbcrlf & "github.com/davenport651" & vbtab &_
+		"4/24/2008",,"Spell Check via Aspell, Version 2"
+	End Sub
+	
+</script>
+
+<body style="font-family: Arial,Helvetica,sans-serif">
+<p>Text to check: <input type="text" name="input" title="Type a word to be spell checked."></p>
+
+<p>Corrected to: <span id="listboxDescription"><small>Corrections will appear below</small></span><br>
+ <blockquote><p><select width=50 size="5" name="Corrections" onChange="CopyToClipboard" disabled="disabled" title="Click a word to copy it to clipboard"></select></p></blockquote>
+</p>
+
+<p><button onclick="Reset">Reset</button> &nbsp <button onclick="Check">Check Spelling</button>
+ &nbsp <button onclick="About">About</button></p>
+</body>
+</html>
